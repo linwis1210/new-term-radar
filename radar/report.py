@@ -37,7 +37,7 @@ def leads(cfg: dict, blocks: dict[str, dict]) -> tuple[list[dict], dict]:
     cut = cfg["judge"]["min_score"]
     # Earliest signal first among equals: a name the labs said today beats a sitemap echo.
     rows.sort(key=lambda r: (-(r.get("named", 0) >= cut), -len(r["kinds"]),
-                             min(KINDS.index(k) for k in r["kinds"]), opportunity.RANK[r["format"]], -r.get("named", 0)))
+                             min((KINDS.index(k) if k in KINDS else len(KINDS)) for k in r["kinds"]), opportunity.RANK[r["format"]], -r.get("named", 0)))
     return rows, status
 
 

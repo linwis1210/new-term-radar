@@ -22,6 +22,7 @@ Signals:
   python -m radar history  [pull|read|sort] [--platform stripe] [--max-usd 20] [--out sellers.csv]
                            every seller on the payment platforms of ⑧, back to 2019 (about $18 for all; see radar/seller_history.py)
   python -m radar mcp      the MCP server on stdio (needs the `mcp` package)
+  python -m radar linwis   Linwis fork: free signals + Monid + SEO four-gate (no AIsa X/usecases)
 
 `keywords` builds the keyword table for names you give it, now (about $0.05 a name plus
 $0.09 a call for the volume lookup). `leads` lists what the radar has kept, with the
@@ -43,9 +44,10 @@ from datetime import date
 from pathlib import Path
 
 from . import asks, breakout, config, gsc, new_sites, notify, pains, report, review, revenue, seller_history, sellers, sitemaps, sources, store, usecases
+from . import ext_hn, ext_ph, ext_steam, ext_trends_rss, ext_monid_reddit, ext_monid_tiktok, ext_seo_gate, ext_report
 from .i18n import t
 
-SKIPPABLE = {"x", "hf", "breakout", "sitemaps", "newsites", "revenue", "asks", "sellers", "gsc", "review", "judge", "usecases", "tutorials"}
+SKIPPABLE = {"x", "hf", "breakout", "sitemaps", "newsites", "revenue", "asks", "sellers", "gsc", "review", "judge", "usecases", "tutorials", "hn", "ph", "steam", "trends_rss", "monid_reddit", "monid_tiktok", "seo_gate"}
 
 
 def run(fn, skip: bool = False) -> dict:
@@ -114,9 +116,17 @@ def cmd_daily(args, cfg: dict, state: Path) -> int:
     rev = run(lambda: review.review(cfg, conn), "review" in args.skip)
     summ = run(lambda: store.summary(conn))
     text = report.daily(cfg, lead, blocks, found, rev, summ, extra)
+    if (cfg.get("linwis_ext") or {}).get("enabled"):
+        ext_blocks = run_linwis_blocks(cfg, state, args.skip)
+        ext_blocks["seo_gate"] = run(
+            lambda: ext_seo_gate.run_seo_gate(cfg, ext_blocks, radar_dir=Path((cfg.get("linwis_ext") or {}).get("radar_dir") or "/workspace/radar")),
+            "seo_gate" in args.skip,
+        )
+        extra["linwis_ext"] = ext_blocks
+        text = text + ext_report.append_section(ext_blocks)
     if args.out:
         Path(args.out).with_suffix(".json").write_text(json.dumps(
-            {"leads": lead, **blocks, "gsc": found, "review": rev, "summary": summ, "keywords": extra["usecases"]}, ensure_ascii=False, indent=1, default=str))
+            {"leads": lead, **blocks, "gsc": found, "review": rev, "summary": summ, "keywords": extra["usecases"], "linwis_ext": extra.get("linwis_ext")}, ensure_ascii=False, indent=1, default=str))
     _finish(args, text, f"New-term radar {date.today()}")
     return 0
 
@@ -185,6 +195,43 @@ def cmd_leads(args, state: Path) -> int:
     return 0
 
 
+LINWIS_SIGNALS = ("hn", "ph", "steam", "trends_rss", "monid_reddit", "monid_tiktok")
+
+
+def run_linwis_blocks(cfg: dict, state: Path, skip: set[str]) -> dict[str, dict]:
+    """Run free + Monid signals (each skippable). Does not run seo_gate."""
+    return {
+        "hn": run(lambda: ext_hn.fetch_hn(cfg), "hn" in skip),
+        "ph": run(lambda: ext_ph.fetch_ph(cfg), "ph" in skip),
+        "steam": run(lambda: ext_steam.fetch_steam(cfg), "steam" in skip),
+        "trends_rss": run(lambda: ext_trends_rss.fetch_trends_rss(cfg), "trends_rss" in skip),
+        "monid_reddit": run(lambda: ext_monid_reddit.fetch_monid_reddit(cfg, state), "monid_reddit" in skip),
+        "monid_tiktok": run(lambda: ext_monid_tiktok.fetch_monid_tiktok(cfg, state), "monid_tiktok" in skip),
+    }
+
+
+def cmd_linwis(args, cfg: dict, state: Path) -> int:
+    """Only Linwis extension signals + SEO four-gate; Markdown 简体中文 + json."""
+    blocks = run_linwis_blocks(cfg, state, args.skip)
+    blocks["seo_gate"] = run(
+        lambda: ext_seo_gate.run_seo_gate(cfg, blocks, radar_dir=Path((cfg.get("linwis_ext") or {}).get("radar_dir") or "/workspace/radar")),
+        "seo_gate" in args.skip,
+    )
+    text = ext_report.render(blocks)
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    now = datetime.now(ZoneInfo("Asia/Singapore"))
+    default_out = Path(f"/workspace/radar/{now.strftime('%Y-%m-%d-%H')}-linwis.md")
+    out = Path(args.out) if args.out else default_out
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text)
+    out.with_suffix(".json").write_text(json.dumps(blocks, ensure_ascii=False, indent=1, default=str))
+    print(text)
+    print(f"\nWrote {out} and {out.with_suffix('.json')}")
+    return 0
+
+
+
 def serve_mcp() -> int:
     """`new-term-radar mcp`: the stdio MCP server under the package's own name, so a
     client that only knows the PyPI name can start it (`uvx --with mcp new-term-radar mcp`)."""
@@ -202,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         return serve_mcp()
     prog = "python -m radar" if __package__ == "radar" else "new-term-radar"  # installed, the package has another name
     p = argparse.ArgumentParser(prog=prog, description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("command", choices=["daily", "sources", "keywords", "leads", "pains", "history"])
+    p.add_argument("command", choices=["daily", "sources", "keywords", "leads", "pains", "history", "linwis"])
     p.add_argument("names", nargs="*", help="for `keywords`: the names to read; for `history`: pull, read, sort or report")
     p.add_argument("--repo", action="append", default=[], metavar="NAME=OWNER/REPO", help="for `keywords`: a name's GitHub repository")
     p.add_argument("--days", type=int, default=7, help="for `leads`: how far back")
@@ -240,6 +287,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_pains(args, cfg)
     if args.command == "history":
         return cmd_history(args, cfg, state)
+    if args.command == "linwis":
+        return cmd_linwis(args, cfg, state)
     return cmd_sources(args, cfg, state) if args.command == "sources" else cmd_daily(args, cfg, state)
 
 
