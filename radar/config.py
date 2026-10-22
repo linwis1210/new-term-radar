@@ -38,6 +38,25 @@ DEFAULTS = {
     "sellers": {"weekday": 0, "platforms": ["stripe", "polar", "lemonsqueezy", "gumroad", "creem"], "per_platform": 100,
                 "max_leads": 12, "visits": True, "rank_max": 350, "max_visits": 300000, "pool": 60, "model": "gpt-4.1-mini"},
     "gsc": {},
+    "linwis_ext": {
+        "enabled": False,
+        "radar_dir": "/workspace/radar",
+        "reddit_subs": [
+            "SideProject", "artificial", "LocalLLaMA", "singularity", "StableDiffusion",
+            "aivideo", "MachineLearning", "ChatGPT", "OpenAI", "technology", "InternetIsBeautiful",
+        ],
+        "reddit_limit": 15,
+        "tiktok_regions": ["US", "SG", "GB"],
+        "tiktok_industries": ["tech_electronics", "games", "education"],
+        "tiktok_period": 7,
+        "tiktok_hashtag_limit": 3,
+        "monid_wait": 30,
+        "trends_geos": ["US", "GB", "IN", "JP", "SG", "DE", "BR", "AU", "CA"],
+        "serp_check": True,
+        "rdap_check": True,
+        "long_tail_n": 8,
+        "rdap_n": 3,
+    },
 }
 
 

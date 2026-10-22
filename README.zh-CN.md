@@ -381,3 +381,46 @@ python -m pytest -q tests
 ## 许可
 
 MIT。这套雷达提取自 [agentskillshub.top](https://agentskillshub.top) 背后每天在跑的版本。
+
+## Linwis 扩展（fork）
+
+本 fork（`linwis1210/new-term-radar`）在上游信号之外增加一批**可跳过**的免费/Monid 信号，以及「建站四关」筛选。默认关闭，不影响原有 `daily` / `sources` 行为。
+
+### 新增信号（均可 `--skip`）
+
+| 键 | 模块 | 说明 |
+|----|------|------|
+| `hn` | `radar/ext_hn.py` | Hacker News / Show HN（Firebase 公开 API），筛 AI 工具相关 |
+| `ph` | `radar/ext_ph.py` | Product Hunt Atom；抓不到返回 `error`，不崩 |
+| `steam` | `radar/ext_steam.py` | Steam 新品/热门 AI 搜索，过滤纯传统游戏 |
+| `trends_rss` | `radar/ext_trends_rss.py` | Google Trends 每日热搜 RSS（US/GB/IN/JP/SG/DE/BR/AU/CA）合并去重 |
+| `monid_reddit` | `radar/ext_monid_reddit.py` | 本机 `monid` CLI → `/reddit.subreddit_posts` |
+| `monid_tiktok` | `radar/ext_monid_tiktok.py` | `/tiktok.trending_hashtags` + `/tiktok.trending_feed`（不做 Instagram） |
+| `seo_gate` | `radar/ext_seo_gate.py` | 四关：真新且在涨 / AI 工具 / SERP 前排空 / 长尾+RDAP |
+
+### 配置
+
+在 `config.json` 中设置（见 `config.example.json` 的 `linwis_ext`）：
+
+```json
+"linwis_ext": { "enabled": false }
+```
+
+- `enabled: false`（默认）：`daily` 行为与上游完全一致。
+- `enabled: true`：在日报末尾追加 Linwis 扩展小节。
+
+### 命令
+
+```bash
+# 只跑扩展信号 + 四关（不跑需 AIsa 的 x/usecases）
+python -m radar linwis [--config config.json] [--state state] [--out /workspace/radar/日期-小时-linwis.md] \
+  [--skip monid_reddit,monid_tiktok]
+
+# 干跑免费信号、跳过 Monid
+python -m radar linwis --skip monid_reddit,monid_tiktok
+```
+
+默认写出 Markdown + 同名 `.json` 到 `/workspace/radar/YYYY-MM-DD-HH-linwis.md`（新加坡时间）。报告为简体中文。
+
+无 Monid / 无 key 时对应信号 `skipped` 或 `error`，并在报告中注明；SERP 无 GoAnyAPI/AIsa 时用轻量公开抓取，失败标 `serp: unchecked`；域名用 Verisign RDAP（404=可注册）。
+

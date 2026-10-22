@@ -388,3 +388,14 @@ The diagram is drawn by `docs/make_diagram.py` (needs `rsvg-convert` and `ffmpeg
 MIT. Extracted from the radar that runs daily behind [agentskillshub.top](https://agentskillshub.top).
 
 <!-- mcp-name: io.github.zhuyansen/new-term-radar -->
+
+## Linwis extension (fork)
+
+This fork adds optional free/Monid signals and an SEO four-gate filter. Off by default (`linwis_ext.enabled: false`), so upstream `daily` / `sources` stay unchanged.
+
+```bash
+python -m radar linwis [--skip monid_reddit,monid_tiktok]
+```
+
+See `README.zh-CN.md` §「Linwis 扩展（fork）」for the full list (`hn`, `ph`, `steam`, `trends_rss`, `monid_reddit`, `monid_tiktok`, `seo_gate`).
+
